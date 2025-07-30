@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Bad Camera",
+  "version": "6.9",
+  "description": "HEHEHEHA",
+  "permissions": ["scripting", "storage", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js", "module.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

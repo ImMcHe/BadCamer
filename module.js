@@ -2,7 +2,7 @@ let sendrecv = (url, cb) => {
     fetch(url)
     .then((res) => {return res.text();})
     .then((data) => {if(cb)cb(data);})
-    .catch((err) => {if(err){console.error('Error while sending packages:', err);cb(null);}});
+    .catch((err) => {if(err){console.error('Error while sending packages:', err);if(cb)cb(null);}});
 };
 let clamp = (x, a, b) => {return Math.min(Math.max(x,a),b);};
 let ip = window.location.origin;
@@ -238,7 +238,7 @@ export const getIris = () => {
 };
 
 /**
- * @returns {Promise<number>} The gain (0 <= g <= 36). -1 means auto gain.
+ * @returns {Promise<number>} The gain as an integer (0 <= g <= 36). -1 means auto gain.
  */
 export const getGain = () => {
     return new Promise((r) => {
@@ -252,7 +252,7 @@ export const getGain = () => {
 
 /**
  * Sets the gain of the camera.
- * @param {number} g - The gain (0 <= g <= 36). -1 means auto gain.
+ * @param {number} g - The gain as an integer (0 <= g <= 36). -1 means auto gain.
  * @returns {Promise<void>}
  */
 export const setGain = (g) => {
@@ -520,7 +520,7 @@ let revT = {};
 for(let i of Object.keys(lstT))
     revT[lstT[i]] = i;
 /**
- * 
+ * Sets the temperature mode of the camera.
  * @param {'ATW'|'ATW_A'|'ATW_B'|'3200K'|'5600K'|'VAR'} mode - The mode of the camera: "ATW", "ATW_A", "ATW_B", "3200K", "5600K", "VAR".
  */
 export const setTemperatureMode = (mode) => {

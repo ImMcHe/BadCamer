@@ -375,7 +375,7 @@ export const easePosition = (x, y, speed) => {
                 setPosition(x, y).then(() => {r();});
                 return;
             }
-            dst = clamp(4*(dst*speed)**.5, .2, .7);
+            dst = clamp(4*(dst*speed)**.5, .2, .9);
             moveSpeed(dx*dst, dy*dst*yFactor).then(() => {getPosition().then((R) => {easeOut(r, ...getdxdydst(R));});});
         };
 
@@ -393,7 +393,7 @@ export const easePosition = (x, y, speed) => {
                 }
 
                 dst = ogdst - dst;
-                let curSpeed = clamp(4*(speed*dst)**.5, .2, .7);
+                let curSpeed = clamp(4*(speed*dst)**.5, .2, .9);
                 moveSpeed(curSpeed*dx, curSpeed*dy*yFactor).then(() => {easeIn(r);});
             });
         };
@@ -433,7 +433,7 @@ export const easeZoom = (z, speed) => {
             }
             let mul = dst<0?-1:1;
             dst *= mul;
-            dst = mul*clamp(4*(dst*speed)**.5, .2, .8);
+            dst = mul*clamp(4*(dst*speed)**.5, .2, .9);
             zoomSpeed(dst).then(() => {getZoom().then((R) => {easeOut(r, z-R);});});
         };
 
@@ -455,7 +455,7 @@ export const easeZoom = (z, speed) => {
                 dst = ogdst - dst;
                 let mul = (dst==0?ogdst:dst)<0?-1:1;
                 dst *= mul;
-                let curSpeed = mul*clamp(4*(speed*dst)**.5, .2, .8);
+                let curSpeed = mul*clamp(4*(speed*dst)**.5, .2, .9);
                 zoomSpeed(curSpeed).then(() => {easeIn(r);});
             });
         };

@@ -1,6 +1,6 @@
 let sendrecv = (url, cb) => {
     fetch(url)
-    .then((res) => {return res.text();})
+    .then((res) => res.text())
     .then((data) => {if(cb)cb(data);})
     .catch((err) => {if(err){console.error('Error while sending packages:', err);if(cb)cb(null);}});
 };
@@ -353,20 +353,24 @@ export const easePosition = (x, y, speed) => {
         y = clamp(y, -1, 1);
         let ogdst = -1;
 
-        let getdxdydst = (result) => {
-            let sx = result[0];
-            let sy = result[1];
-            let dx = x-sx;
-            let dy = (y-sy) * yFactor;
-            let dst = ((dx*dx) + (dy*dy))**.5;
-            if(ogdst == -1)
-                ogdst = dst;
-            dx /= dst;
-            dy /= dst;
-            return [dx, dy, dst];
+        let getNextEase = (dx, dy, cb) => {
+            getPosition().then((result) => {
+                let sx = result[0];
+                let sy = result[1];
+                let dx = x-sx;
+                let dy = (y-sy) * yFactor;
+                let dst = ((dx*dx) + (dy*dy))**.5;
+                if(ogdst == -1)
+                    ogdst = dst;
+                dx /= dst;
+                dy /= dst;
+                cb(dx, dy, dst);
+            });
+            if(dx!=null)
+                moveSpeed(dx, dy);
         };
 
-        let easeOut = (r, dx, dy, dst) => {
+        let easeOut = (dx, dy, dst) => {
             if(curPid != easeMovePid){
                 r();
                 return;
@@ -375,29 +379,24 @@ export const easePosition = (x, y, speed) => {
                 setPosition(x, y).then(() => {r();});
                 return;
             }
-            dst = clamp(4*(dst*speed)**.5, .2, .9);
-            moveSpeed(dx*dst, dy*dst*yFactor).then(() => {getPosition().then((R) => {easeOut(r, ...getdxdydst(R));});});
+            dst = clamp(2*(dst*speed)**.5, .2, .9);
+            getNextEase(dx*dst, dy*dst*yFactor, easeOut);
         };
 
-        let easeIn = (r) => {
+        let easeIn = (dx, dy, dst) => {
             if(curPid != easeMovePid){
                 r();
                 return;
             }
-            getPosition().then((result) => {
-                let[dx, dy, dst] = getdxdydst(result);
-
-                if(dst < ogdst/2 || dst < .08){
-                    easeOut(r, dx, dy, dst);
-                    return;
-                }
-
-                dst = ogdst - dst;
-                let curSpeed = clamp(4*(speed*dst)**.5, .2, .9);
-                moveSpeed(curSpeed*dx, curSpeed*dy*yFactor).then(() => {easeIn(r);});
-            });
+            if(dst < ogdst/2 || dst < .08){
+                easeOut(dx, dy, dst);
+                return;
+            }
+            dst = ogdst - dst;
+            let curSpeed = clamp(2*(speed*dst)**.5, .2, .9);
+            getNextEase(curSpeed*dx, curSpeed*dy*yFactor, easeIn);
         };
-        easeIn(r);
+        getNextEase(null, null, easeIn);
     });
 };
 
@@ -420,9 +419,20 @@ export const easeZoom = (z, speed) => {
         }
         speed = clamp(speed, 0, 1);
         z = clamp(z, -1, 1);
-        let ogdst = null;
+        let ogdst = -1;
 
-        let easeOut = (r, dst) => {
+        let getNextEase = (dst, cb) => {
+            getZoom().then((zoom) => {
+                zoom = z-zoom;
+                if(ogdst == -1)
+                    ogdst = zoom;
+                cb(zoom);
+            });
+            if(dst!=null)
+                zoomSpeed(dst);
+        };
+
+        let easeOut = (dst) => {
             if(curPid != easeZoomPid){
                 r();
                 return;
@@ -433,33 +443,27 @@ export const easeZoom = (z, speed) => {
             }
             let mul = dst<0?-1:1;
             dst *= mul;
-            dst = mul*clamp(4*(dst*speed)**.5, .2, .9);
-            zoomSpeed(dst).then(() => {getZoom().then((R) => {easeOut(r, z-R);});});
+            dst = mul*clamp(2*(dst*speed)**.5, .2, .9);
+            getNextEase(dst, easeOut);
         };
 
-        let easeIn = (r) => {
+        let easeIn = (dst) => {
             if(curPid != easeZoomPid){
                 r();
                 return;
             }
-            getZoom().then((z1) => {
-                if(ogdst === null)
-                    ogdst = z-z1;
+            if(Math.abs(dst) < Math.abs(ogdst/2) || Math.abs(dst) < .08){
+                easeOut(r, dst);
+                return;
+            }
 
-                let dst = z-z1;
-                if(Math.abs(dst) < Math.abs(ogdst/2) || Math.abs(dst) < .08){
-                    easeOut(r, dst);
-                    return;
-                }
-
-                dst = ogdst - dst;
-                let mul = (dst==0?ogdst:dst)<0?-1:1;
-                dst *= mul;
-                let curSpeed = mul*clamp(4*(speed*dst)**.5, .2, .9);
-                zoomSpeed(curSpeed).then(() => {easeIn(r);});
-            });
+            dst = ogdst - dst;
+            let mul = (dst==0?ogdst:dst)<0?-1:1;
+            dst *= mul;
+            let curSpeed = mul*clamp(2*(speed*dst)**.5, .2, .9);
+            getNextEase(curSpeed, easeIn);
         };
-        easeIn(r);
+        getNextEase(null, easeIn);
     });
 };
 

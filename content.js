@@ -119,7 +119,6 @@ import * as M from "./module.js";
 
     let prevTime = Date.now();
     let alpha = .001;
-    let pw = 1.45;
     let timeoutFunc = async() => {
         let curTime = Date.now();
         let dt = (curTime - prevTime) * alpha;
@@ -142,21 +141,18 @@ import * as M from "./module.js";
         if(keys['smooth']){
             let d, p, pbef, c, sign;
             d = x;
-            sign = moveSpeed['x']<0?-1:1;
-            pbef = sign * ((sign*moveSpeed['x']) ** pw);
+            pbef = moveSpeed['x'];
             sign = d-pbef<0?-1:1;
             c = Math.log(sign * (d - pbef));
             p = d - sign * Math.exp(-dt + c);
-            sign = p<0?-1:1;
-            moveSpeed['x'] = sign*((sign*p)**(1/pw));
+            moveSpeed['x'] = p;
             d = y;
-            sign = moveSpeed['y']<0?-1:1;
-            pbef = sign * ((sign*moveSpeed['y']) ** pw);
+            pbef = moveSpeed['y'];
             sign = d-pbef<0?-1:1;
             c = Math.log(sign * (d - pbef));
             p = d - sign * Math.exp(-dt + c);
-            sign = p<0?-1:1;
-            moveSpeed['y'] = sign*((sign*p)**(1/pw));
+            moveSpeed['y'] = p;
+            console.log(d, pbef, c, p);
         }else{
             moveSpeed['x'] = x;
             moveSpeed['y'] = y;
@@ -169,6 +165,7 @@ import * as M from "./module.js";
 
         let tm=50;
         if(moveSpeed['x']!=prevMoveSpeed['x'] || moveSpeed['y']!=prevMoveSpeed['y']){
+            console.log(moveSpeed['x'], moveSpeed['y']);
             await M.moveSpeed(moveSpeed['x'], moveSpeed['y']);
             prevMoveSpeed = JSON.parse(JSON.stringify(moveSpeed));
             tm = 0;

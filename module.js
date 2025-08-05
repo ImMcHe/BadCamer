@@ -270,8 +270,8 @@ export const setGain = (g) => {
 
 /**
  * When the image is clicked at a position.
- * @param {number} x - The x position in pixels of the mouse (0 <= x <= 1280).
- * @param {number} y - The y position in pixels of the mouse (0 <= y <= 720).
+ * @param {number} x - The x position in pixels of the mouse (0 <= x < 1280).
+ * @param {number} y - The y position in pixels of the mouse (0 <= y < 720).
  * @returns {Promise<void>}
  */
 export const click = (x, y) => {
@@ -282,8 +282,8 @@ export const click = (x, y) => {
             r();
             return;
         }
-        x = Math.round(x);
-        y = Math.round(y);
+        x = Math.floor(x);
+        y = Math.floor(y);
         if(x<0 || y<0 || x>=1280 || y>=720)
             return;
         sendrecv(`${ip}/cgi-bin/center_click?x=${x}&y=${y}&oz=0&dz=100&position=1&resolution=1280`, () => {r();});
@@ -302,6 +302,10 @@ export const createImage = () => {
                 return;
             }
             let uid = res.split(',')[0].split(':')[1];
+            if(uid == '-1'){
+                r(null);
+                return;
+            }
             let imageUrl = ip + '/cgi-bin/jpeg?connect=start&framerate=25&resolution=1280&quality=1&UID=' + uid;
             let int = setInterval(() => {sendrecv(ip+'/cgi-bin/keep_alive?mode=jpeg&protocol=http&UID='+uid);}, 30000);
             imgMap[imageUrl] = int;
@@ -330,6 +334,7 @@ export const destroyImage = (url) => {
 
 let yFactor = .8;
 let easeMovePid = 0;
+let easeMoveStops = 1;
 /**
  * Ease the camera to a position with a certain speed.
  * @param {number} x - The x position (-1 <= x <= 1).
@@ -338,7 +343,7 @@ let easeMovePid = 0;
  * @returns {Promise<void>}
  */
 export const easePosition = (x, y, speed) => {
-    return new Promise((r) => {
+    return new Promise((r) => {stopEasePosition().then(() => {
         easeMovePid++;
         let curPid = easeMovePid;
         speed = parseFloat(speed);
@@ -348,6 +353,7 @@ export const easePosition = (x, y, speed) => {
             r();
             return;
         }
+        easeMoveStops = 0;
         speed = clamp(speed, 0, 1);
         x = clamp(x, -1, 1);
         y = clamp(y, -1, 1);
@@ -372,11 +378,12 @@ export const easePosition = (x, y, speed) => {
 
         let easeOut = (dx, dy, dst) => {
             if(curPid != easeMovePid){
+                easeMoveStops = 1;
                 r();
                 return;
             }
             if(dst < .001){
-                setPosition(x, y).then(() => {r();});
+                setPosition(x, y).then(() => {easeMoveStops=1;r();});
                 return;
             }
             dst = clamp(2*(dst*speed)**.5, .2, .9);
@@ -385,6 +392,7 @@ export const easePosition = (x, y, speed) => {
 
         let easeIn = (dx, dy, dst) => {
             if(curPid != easeMovePid){
+                easeMoveStops = 1;
                 r();
                 return;
             }
@@ -397,10 +405,32 @@ export const easePosition = (x, y, speed) => {
             getNextEase(curSpeed*dx, curSpeed*dy*yFactor, easeIn);
         };
         getNextEase(null, null, easeIn);
-    });
+    })});
 };
 
+/**
+ * Stops the ease position
+ * @returns {Promise<void>}
+ */
+export const stopEasePosition = () => {
+    return new Promise((r) => {
+        if(easeMoveStops){
+            r();
+            return;
+        }
+        easeMovePid++;
+        let cb = () => {
+            if(easeMoveStops)
+                moveSpeed(0,0).then(r);
+            else
+                setTimeout(cb, 100);
+        };
+        cb();
+    });
+}
+
 let easeZoomPid = 0;
+let easeZoomStops = 1;
 /**
  * Ease the camera to a zoom factor with a certain speed.
  * @param {number} z - The zoom factor (0 <= z <= 1).
@@ -408,7 +438,7 @@ let easeZoomPid = 0;
  * @returns {Promise<void>}
  */
 export const easeZoom = (z, speed) => {
-    return new Promise((r) => {
+    return new Promise((r) => {stopEaseZoom().then(() => {
         easeZoomPid++;
         let curPid = easeZoomPid;
         speed = parseFloat(speed);
@@ -417,6 +447,7 @@ export const easeZoom = (z, speed) => {
             r();
             return;
         }
+        easeZoomStops = 0;
         speed = clamp(speed, 0, 1);
         z = clamp(z, -1, 1);
         let ogdst = -1;
@@ -434,11 +465,12 @@ export const easeZoom = (z, speed) => {
 
         let easeOut = (dst) => {
             if(curPid != easeZoomPid){
+                easeZoomStops = 1;
                 r();
                 return;
             }
             if(Math.abs(dst) < .001){
-                setZoom(z).then(() => {r();});
+                setZoom(z).then(() => {easeZoomStops=1;r();});
                 return;
             }
             let mul = dst<0?-1:1;
@@ -449,6 +481,7 @@ export const easeZoom = (z, speed) => {
 
         let easeIn = (dst) => {
             if(curPid != easeZoomPid){
+                easeZoomStops = 1;
                 r();
                 return;
             }
@@ -464,6 +497,27 @@ export const easeZoom = (z, speed) => {
             getNextEase(curSpeed, easeIn);
         };
         getNextEase(null, easeIn);
+    })});
+};
+
+/**
+ * Stops the ease zoom
+ * @returns {Promise<void>}
+ */
+export const stopEaseZoom = () => {
+    return new Promise((r) => {
+        if(easeZoomStops){
+            r();
+            return;
+        }
+        easeZoomPid++;
+        let cb = () => {
+            if(easeZoomStops)
+                zoomSpeed(0).then(r);
+            else
+                setTimeout(cb, 100);
+        };
+        cb();
     });
 };
 

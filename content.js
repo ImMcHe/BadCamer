@@ -1,4 +1,4 @@
-import * as M from "./module.js";
+import * as M from './module.js';
 
 (async() => {
     document.body.innerHTML = '';
@@ -67,11 +67,17 @@ import * as M from "./module.js";
     zoomMovePan.style.width = '65px';
     zoomMovePan.style.height = '150px';
     movePan.appendChild(zoomMovePan);
+    zoomMovePan.style.display = 'flex';
+    zoomMovePan.style.alignItems = 'center';
+    zoomMovePan.style.position = 'relative';
 
     let focMovePan = document.createElement('div');
     focMovePan.style.width = '65px';
     focMovePan.style.height = '150px';
     movePan.appendChild(focMovePan);
+    focMovePan.style.display = 'flex';
+    focMovePan.style.alignItems = 'center';
+    focMovePan.style.position = 'relative';
 
     let intMovePan = document.createElement('div');
     intMovePan.style.width = '120px';
@@ -84,9 +90,25 @@ import * as M from "./module.js";
     handleBar.style.height = '80px';
     handleBar.style.position = 'absolute';
     intMovePan.appendChild(handleBar);
-    handleBar.innerHTML = '<svg width="80" height="80" style="cursor:pointer"><circle cx="40" cy="40" r="40" fill="#333"/></svg>';
+    handleBar.innerHTML = '<svg width=80 height=80><circle cx=40 cy=40 r=40 fill=#333 /></svg>';
 
-    intMovePan.insertAdjacentHTML('beforeend', '<svg width="120" height="120"><circle cx="60" cy="60" r="52.5" stroke="#333" stroke-width="15" fill="none"/></svg>');
+    let zoomHandleBar = document.createElement('div');
+    zoomHandleBar.style.width = '65px';
+    zoomHandleBar.style.height = '65px';
+    zoomHandleBar.style.position = 'absolute';
+    zoomMovePan.appendChild(zoomHandleBar);
+    zoomHandleBar.innerHTML = '<svg width=65 height=65><circle cx=32.5 cy=32.5 r=27.5 fill=#333 /></svg>';
+
+    let focHandleBar = document.createElement('div');
+    focHandleBar.style.width = '65px';
+    focHandleBar.style.height = '65px';
+    focHandleBar.style.position = 'absolute';
+    focMovePan.appendChild(focHandleBar);
+    focHandleBar.innerHTML = '<svg width=65 height=65><circle cx=32.5 cy=32.5 r=27.5 fill=#333 /></svg>';
+
+    intMovePan.insertAdjacentHTML('beforeend', '<svg width=120 height=120><circle cx=60 cy=60 r=52.5 stroke=#333 stroke-width=5 fill=none /></svg>');
+    zoomMovePan.insertAdjacentHTML('beforeend', '<svg width=65 height=120><rect width=50 height=105 y=7.5 x=7.5 rx=32.5 ry=32.5 fill=none stroke=#333 stroke-width=5 /></svg>');
+    focMovePan.insertAdjacentHTML('beforeend', '<svg width=65 height=120><rect width=50 height=105 y=7.5 x=7.5 rx=32.5 ry=32.5 fill=none stroke=#333 stroke-width=5 /></svg>');
 
     let keys = {'up':0,'down':0,'left':0,'right':0,'zin':0,'zout':0,'fin':0,'fout':0,'smooth':0};
     let moveSpeed = {'x':0, 'y':0};
@@ -119,12 +141,14 @@ import * as M from "./module.js";
 
     let prevTime = Date.now();
     let alpha = .001;
+    let curZoomScale = await M.getZoom();
+
     let timeoutFunc = async() => {
         let curTime = Date.now();
         let dt = (curTime - prevTime) * alpha;
         prevTime = curTime;
 
-        let x=0, y=0;
+        let x=0, y=0, z=0, f=0;
         if(keys['left'])
             x--;
         if(keys['right'])
@@ -133,6 +157,14 @@ import * as M from "./module.js";
             y++;
         if(keys['down'])
             y--;
+        if(keys['zin'])
+            z++;
+        if(keys['zout'])
+            z--;
+        if(keys['fin'])
+            f++;
+        if(keys['fout'])
+            f--;
         let dist = (x*x + y*y) ** .5
         dist = Math.max(dist, 1);
         x /= dist;
@@ -152,10 +184,23 @@ import * as M from "./module.js";
             c = Math.log(sign * (d - pbef));
             p = d - sign * Math.exp(-dt + c);
             moveSpeed['y'] = p;
-            console.log(d, pbef, c, p);
+            d = z;
+            pbef = zoomSpeed;
+            sign = d-pbef<0?-1:1;
+            c = Math.log(sign * (d - pbef));
+            p = d - sign * Math.exp(-dt + c);
+            zoomSpeed = p;
+            d = f;
+            pbef = focusSpeed;
+            sign = d-pbef<0?-1:1;
+            c = Math.log(sign * (d - pbef));
+            p = d - sign * Math.exp(-dt + c);
+            focusSpeed = p;
         }else{
             moveSpeed['x'] = x;
             moveSpeed['y'] = y;
+            zoomSpeed = z;
+            focusSpeed = f;
         }
 
         dist = (moveSpeed['x']**2 + moveSpeed['y']**2) ** .5;
@@ -165,14 +210,16 @@ import * as M from "./module.js";
 
         let tm=50;
         if(moveSpeed['x']!=prevMoveSpeed['x'] || moveSpeed['y']!=prevMoveSpeed['y']){
-            console.log(moveSpeed['x'], moveSpeed['y']);
-            await M.moveSpeed(moveSpeed['x'], moveSpeed['y']);
+            let damp = curZoomScale*1.5;
+            damp++;
+            await M.moveSpeed(moveSpeed['x']/damp, moveSpeed['y']/damp);
             prevMoveSpeed = JSON.parse(JSON.stringify(moveSpeed));
             tm = 0;
         }
         if(zoomSpeed != prevZoomSpeed){
             await M.zoomSpeed(zoomSpeed);
-            prevZoomSPeed = zoomSpeed;
+            M.getZoom().then((d) => {curZoomScale = d;});
+            prevZoomSpeed = zoomSpeed;
             tm = 0;
         }
         if(focusSpeed != prevFocusSpeed){
@@ -183,6 +230,8 @@ import * as M from "./module.js";
 
         handleBar.style.left = 20+moveSpeed['x']*20+'px';
         handleBar.style.top = 20-moveSpeed['y']*20+'px';
+        zoomHandleBar.style.top = 42.5-zoomSpeed*20+'px';
+        focHandleBar.style.top = 42.5-focusSpeed*20+'px';
         setTimeout(timeoutFunc, tm);
     };
     timeoutFunc();

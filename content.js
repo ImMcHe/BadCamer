@@ -118,7 +118,7 @@ import * as M from "./module.js";
     document.addEventListener('keyup', (e) => {keyPress(e.code,0);});
 
     let prevTime = Date.now();
-    let alpha = .005;
+    let alpha = .001;
     let timeoutFunc = async() => {
         let curTime = Date.now();
         let dt = (curTime - prevTime) * alpha;
@@ -158,8 +158,14 @@ import * as M from "./module.js";
             moveSpeed['y'] = y;
         }
 
+        dist = (moveSpeed['x']**2 + moveSpeed['y']**2) ** .5;
+        dist = Math.max(1, dist);
+        moveSpeed['x'] /= dist;
+        moveSpeed['y'] /= dist;
+
         let tm=50;
         if(moveSpeed['x']!=prevMoveSpeed['x'] || moveSpeed['y']!=prevMoveSpeed['y']){
+            console.log(moveSpeed['x'], moveSpeed['y']);
             await M.moveSpeed(moveSpeed['x'], moveSpeed['y']);
             prevMoveSpeed = JSON.parse(JSON.stringify(moveSpeed));
             tm = 0;

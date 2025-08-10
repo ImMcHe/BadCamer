@@ -14,7 +14,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["content.js", "module.js"],
+      "resources": ["content.js", "module.js", "agear.png", "trash.webp"],
       "matches": ["<all_urls>"]
     }
   ]

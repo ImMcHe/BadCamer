@@ -1,4 +1,9 @@
 let sendrecv = (url, cb) => {
+    if(istest){
+        if(cb)
+            setTimeout(() => {cb('000000000000000000000');}, 0);
+        return;
+    }
     fetch(url)
     .then((res) => res.text())
     .then((data) => {if(cb)cb(data);})
@@ -6,6 +11,7 @@ let sendrecv = (url, cb) => {
 };
 let clamp = (x, a, b) => {return Math.min(Math.max(x,a),b);};
 let ip = window.location.origin;
+let istest = ip=='https://heheheha.neocities.org';
 
 /**
  * Moves the camera to position (x, y).
@@ -49,7 +55,7 @@ export const setZoom = (z) => {
 
 /**
  * Focusses the camera to a position.
- * @param {number} f The focus factor (0 <= f <= 1). -1 means auto focus.
+ * @param {number} f The focus factor (0 <= f <= 1).
  * @returns {Promise<void>}
  */
 export const setFocus = (f) => {
@@ -59,15 +65,9 @@ export const setFocus = (f) => {
             r();
             return;
         }
-        if(f == -1){
-            sendrecv(`${ip}/cgi-bin/aw_cam?cmd=OAF:1&res=1`, () => {r();});
-            return;
-        }
         f = clamp(f, 0, 1);
         let fs = (Math.round(f*2730) + 1365).toString(16).toUpperCase();
-        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=OAF:0&res=1`, () => {
-            sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXF${fs}&res=1`, () => {r();});
-        })
+        sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXF${fs}&res=1`, () => {r();});
     });
 };
 
@@ -100,30 +100,35 @@ export const getZoom = () => {
 };
 
 /**
- * @returns {Promise<number>} The focus factor (0 <= f <= 1). -1 means auto focus.
+ * @returns {Promise<number>} The focus factor (0 <= f <= 1).
  */
 export const getFocus = () => {
     return new Promise((r) => {
-        let res = -1;
-        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=QAF&res=1`, (data) => {
-            if(data[4] == '1'){
-                res = 2;
-                r(-1);
-            }else if(res != -1)
-                r(res);
-            else
-                res = 0;
-        });
         sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXF&res=1`, (data) => {
-            if(res == 2)
-                return;
             let x = parseInt(data.slice(3,6), 16);
             x = (x - 1365) / 2730;
-            if(res == 0)
-                r(x);
-            else
-                res = x;
+            r(x);
         });
+    });
+};
+
+/**
+ * @returns {Promise<boolean>} If the camera is on auto focus.
+ */
+export const getAutoFocus = () => {
+    return new Promise((r) => {
+        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=QAF&res=1`, (d) => {r(d=='OAF:1');});
+    });
+};
+
+/**
+ * Sets the auto focus of the camera
+ * @param {boolean} isAutoFocus - If the camera is auto focus.
+ * @returns {Promise<void>}
+ */
+export const setAutoFocus = (isAutoFocus) => {
+    return new Promise((r) => {
+        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=OAF:${isAutoFocus?1:0}&res=1`, () => {r();});
     });
 };
 
@@ -187,7 +192,7 @@ export const focusSpeed = (f) => {
 
 /**
  * Sets the iris of the camera.
- * @param {number} i - The iris (0 <= i <= 1). -1 means auto iris.
+ * @param {number} i - The iris (2.4 <= i <= 25.5).
  * @returns {Promise<void>}
  */
 export const setIris = (i) => {
@@ -197,43 +202,50 @@ export const setIris = (i) => {
             r();
             return;
         }
-        if(i == -1){
-            sendrecv(`${ip}/cgi-bin/aw_cam?cmd=ORS:1&res=1`, () => {r();});
-            return;
-        }
-        i = clamp(i, 0, 1);
+        i *= 10;
+        i = clamp(i, 24, 255);
+        i -= 24;
+        i /= (255 - 24);
+        i = 1-i;
         let fs = (Math.round(i*2730) + 1365).toString(16).toUpperCase();
-        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=ORS:0&res=1`, () => {
-            sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXI${fs}&res=1`, () => {r();});
+        sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXI${fs}&res=1`, () => {r();});
+    });
+};
+
+/**
+ * Sets the auto iris of the camera
+ * @param {boolean} isAutoIris - The auto iris.
+ * @returns {Promise<void>}
+ */
+export const setAutoIris = (isAutoIris) => {
+    return new Promise((r) => {
+        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=ORS:${isAutoIris?1:0}&res=1`, () => {r();});
+    });
+};
+
+/**
+ * @returns {Promise<number>} The iris (2.4 <= i <= 25.5). -1 means auto iris.
+ */
+export const getIris = () => {
+    return new Promise((r) => {
+        sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXI&res=1`, (data) => {
+            let x = parseInt(data.slice(3,6), 16);
+            x = (x - 1365) / 2730;
+            x = 1-x;
+            x *= (255 - 24);
+            x += 24;
+            x /= 10;
+            r(x);
         });
     });
 };
 
 /**
- * @returns {Promise<number>} The iris (0 <= i <= 1). -1 means auto iris.
+ * @returns {Promise<boolean>} The auto iris.
  */
-export const getIris = () => {
+export const getAutoIris = () => {
     return new Promise((r) => {
-        let res = -1;
-        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=QRS&res=1`, (data) => {
-            if(data[4] == '1'){
-                res = 2;
-                r(-1);
-            }else if(res != -1)
-                r(res);
-            else
-                res = 0;
-        });
-        sendrecv(`${ip}/cgi-bin/aw_ptz?cmd=%23AXI&res=1`, (data) => {
-            if(res == 2)
-                return;
-            let x = parseInt(data.slice(3,6), 16);
-            x = (x - 1365) / 2730;
-            if(res == 0)
-                r(x);
-            else
-                res = x;
-        });
+        sendrecv(`${ip}/cgi-bin/aw_cam?cmd=QRS&res=1`, (d) => {r(d=='ORS:1');});
     });
 };
 
@@ -309,7 +321,10 @@ export const createImage = () => {
             let imageUrl = ip + '/cgi-bin/jpeg?connect=start&framerate=25&resolution=1280&quality=1&UID=' + uid;
             let int = setInterval(() => {sendrecv(ip+'/cgi-bin/keep_alive?mode=jpeg&protocol=http&UID='+uid);}, 30000);
             imgMap[imageUrl] = int;
-            r(imageUrl);
+            if(istest)
+                r('https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-9501-4155-82c8-84f254405621/diky6hx-f139fbb9-650a-425e-a8ac-b76adc99cfef.jpg/v1/fill/w_1280,h_720,q_75,strp/summer_retreat_by_mathusalambre_diky6hx-fullview.jpg?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7ImhlaWdodCI6Ijw9NzIwIiwicGF0aCI6IlwvZlwvZDU1MTBiN2MtOTUwMS00MTU1LTgyYzgtODRmMjU0NDA1NjIxXC9kaWt5Nmh4LWYxMzlmYmI5LTY1MGEtNDI1ZS1hOGFjLWI3NmFkYzk5Y2ZlZi5qcGciLCJ3aWR0aCI6Ijw9MTI4MCJ9XV0sImF1ZCI6WyJ1cm46c2VydmljZTppbWFnZS5vcGVyYXRpb25zIl19.MwIq1K1-3tDLJKR1D0boe2gK6ZprnrYFQ5toYLQaAbA');
+            else
+                r(imageUrl);
         });
     });
 };
@@ -387,7 +402,7 @@ export const easePosition = (x, y, speed) => {
                 return;
             }
             dst = clamp(2*(dst*speed)**.5, .2, .9);
-            getNextEase(dx*dst, dy*dst*yFactor, easeOut);
+            getNextEase(dx*dst, dy*dst, easeOut);
         };
 
         let easeIn = (dx, dy, dst) => {
@@ -402,7 +417,7 @@ export const easePosition = (x, y, speed) => {
             }
             dst = ogdst - dst;
             let curSpeed = clamp(2*(speed*dst)**.5, .2, .9);
-            getNextEase(curSpeed*dx, curSpeed*dy*yFactor, easeIn);
+            getNextEase(curSpeed*dx, curSpeed*dy, easeIn);
         };
         getNextEase(null, null, easeIn);
     })});
@@ -427,7 +442,7 @@ export const stopEasePosition = () => {
         };
         cb();
     });
-}
+};
 
 let easeZoomPid = 0;
 let easeZoomStops = 1;
@@ -551,7 +566,7 @@ export const getShutterMode = () => {
  * @returns {Promise<number>} The temperature of the camera in kelvins (2000 <= temp <= 15000).
  */
 export const getTemperatureVar = () => {
-    return new Promise((r) => {sendrecv(ip+'/cgi-bin/aw_cam?cmd=QSI:20&res=1', (res) => {r(parseInt(res.slice(7,12),16));});})
+    return new Promise((r) => {sendrecv(ip+'/cgi-bin/aw_cam?cmd=QSI:20&res=1', (res) => {r(clamp(parseInt(res.slice(7,12),16),2000,15000));});})
 };
 
 /**
@@ -573,7 +588,7 @@ export const setTemperatureVar = (temp) => {
     });
 };
 
-let lstT = {'ATW':0,'ATW_A':1,'ATW_B':2,'3200K':4,'5600K':5,'VAR':9};
+let lstT = {'ATW':0,'ATW_A':2,'ATW_B':3,'3200K':4,'5600K':5,'VAR':9};
 let revT = {};
 for(let i of Object.keys(lstT))
     revT[lstT[i]] = i;

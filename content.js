@@ -586,7 +586,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             }
 
             let setS = document.createElement('div');
-            setS.innerText = 'Will be recorded';
+            setS.innerText = 'Won\'t be recorded';
             setS.style = 'width:'+(txt=='Move'||txt=='Zoom'?75:150)+'px;height:25px;font-size:8.3px';
             setS.setAttribute('class', 'buttonB');
             addEv(setS, () => {

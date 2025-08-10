@@ -452,7 +452,6 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             let dat = JSON.parse(localStorage.getItem('val'+ix));
             let idx=0, tot=0;
             let cb = (txt, val) => {
-                console.log(txt, val);
                 tot++;
                 let cb1 = (r) => {
                     if(r != undefined)
@@ -791,8 +790,8 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
     document.body.appendChild(hiscnv);
     let hiscnvRead = document.createElement('canvas');
     let hisctxRead = hiscnvRead.getContext('2d', {'willReadFrequently':true});
-    hiscnvRead.width = 448;
-    hiscnvRead.height = 252;
+    hiscnvRead.width = 320;
+    hiscnvRead.height = 180;
 
     let utilPan = document.createElement('div');
     utilPan.setAttribute('class', 'buttonC');
@@ -811,17 +810,19 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                 selHist.style.backgroundColor = '';
                 selHist.innerText = 'Histogram: Disabled';
                 hiscnv.style.display = 'none';
-                histId++;
+                focId++;
+                localStorage.removeItem('histogram');
             }else{
+                localStorage.setItem('histogram', 'S');
                 hiscnv.style.display = '';
-                let cpy = histId;
+                let cpy = focId;
                 selHist.style.backgroundColor = '#333';
                 selHist.innerText = 'Histogram: Enabled';
                 let cb = () => {
-                    if(cpy != histId)
+                    if(cpy != focId)
                         return;
-                    hisctxRead.drawImage(pic, 0, 0, 448, 252);
-                    let dat = hisctxRead.getImageData(0, 0, 448, 252).data;
+                    hisctxRead.drawImage(pic, 0, 0, 320, 180);
+                    let dat = hisctxRead.getImageData(0, 0, 320, 180).data;
                     let res = [];
                     for(let i=0; i<256; i++)
                         res.push(0);
@@ -842,24 +843,142 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         }, {'passive':true});
 
     let foccnv = document.createElement('canvas');
-    let focctx = foccnv.getContext('webgl2', {'preserveDrawingBuffer':false});
-    foccnv.style = 'width:100%;position:absolute;left:0px;top:0px';
+    let gl = foccnv.getContext('webgl2', {'preserveDrawingBuffer':false});
+    foccnv.style = 'width:100%;position:absolute;left:0px;top:0px;display:none;pointer-events:none';
     foccnv.width = 1280;
     foccnv.height = 720;
     cen.appendChild(foccnv);
-    console.log(focctx);
 
     let vertShader = `#version 300 es
     in vec2 pos;
     out vec2 uv;
     void main(){
-        uv = pos * .5 + .5;
-        gl_Position = vec4(pos, 0, 1);
+        uv = vec2(pos.x, -pos.y) * .5 + .5;
+        gl_Position = vec4(pos, 0., 1.);
     }`;
-    let fragShader = `version 300 es
+    let fragShader = `#version 300 es
+    precision highp float;
     in vec2 uv;
     uniform sampler2D image;
-    uniform float threash;`;
+    uniform float thresh;
+    uniform vec3 color;
+    out vec4 col;
+    #define cnvt(a,b) (dot(texture(image,uv+vec2(a,b)).rgb,vec3(.299,.587,.114)))
+    void main(){
+        vec2 px = 1. / vec2(textureSize(image, 0));
+        float ca = cnvt(px.x, px.y);
+        float cb = cnvt(-px.x, px.y);
+        float cc = cnvt(px.x, -px.y);
+        float cd = cnvt(-px.x, -px.y);
+        float ea = cnvt(px.x, 0.);
+        float eb = cnvt(0., px.y);
+        float ec = cnvt(-px.x, 0.);
+        float ed = cnvt(0., -px.y);
+        float c = cnvt(0., 0.);
+        float gx = -cb - 2.*ec - cd + ca + 2.*ea + cc;
+        float gy = -cb - 2.*eb - ca + cd + 2.*ed + cc;
+        float nm = clamp(length(vec2(gx, gy))*2., 0., 1.);
+        float mask = smoothstep(thresh-.025, thresh+.025, nm);
+        col = vec4(color, mask);
+    }`;
+
+    let vertId = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertId, vertShader);
+    gl.compileShader(vertId);
+    let fragId = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragId, fragShader);
+    gl.compileShader(fragId);
+    let progId = gl.createProgram();
+    gl.attachShader(progId, vertId);
+    gl.attachShader(progId, fragId);
+    gl.linkProgram(progId);
+    gl.useProgram(progId);
+
+    let posLoc = gl.getAttribLocation(progId, 'pos');
+    let quad = gl.createBuffer();
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, 0, 0, 0);
+
+    let imgLoc = gl.getUniformLocation(progId, 'image');
+    let threshLoc = gl.getUniformLocation(progId, 'thresh');
+    let colLoc = gl.getUniformLocation(progId, 'color');
+
+    let gltex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, gltex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    gl.uniform1i(imgLoc, 0);
+    gl.uniform1f(threshLoc, .7);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    let selFoc = document.createElement('div');
+    selFoc.style = 'font-size:15px;height:35px';
+    selFoc.setAttribute('class', 'buttonB');
+    selFoc.innerText = 'Focus Peaking: Disabled';
+    utilPan.appendChild(selFoc);
+    let focId = 0;
+
+    for(let i of ['click','touchstart'])
+        selFoc.addEventListener(i, () => {
+            if(selFoc.style.backgroundColor){
+                selFoc.style.backgroundColor = '';
+                selFoc.innerText = 'Focus Peaking: Disabled';
+                foccnv.style.display = 'none';
+                focId++;
+                localStorage.removeItem('focusPeak');
+            }else{
+                localStorage.setItem('focusPeak', 'k');
+                foccnv.style.display = '';
+                let cpy = focId;
+                selFoc.style.backgroundColor = '#333';
+                selFoc.innerText = 'Focus Peaking: Enabled';
+                let cb = async(t) => {
+                    t *= .001;
+                    t %= 6;
+                    if(focId != cpy)
+                        return;
+                    window.requestAnimationFrame(cb);
+                    let r=0, g=0, b=0;
+                    if(t<1){
+                        r = 1;
+                        g = t;
+                    }else if(t<2){
+                        r = 2-t;
+                        g = 1
+                    }else if(t<3){
+                        g = 1;
+                        b = t-2;
+                    }else if(t<4){
+                        g = 4-t;
+                        b = 1;
+                    }else if(t<5){
+                        b = 1;
+                        r = t-4;
+                    }else{
+                        b = 6-t;
+                        r = 1;
+                    }
+                    gl.uniform3f(colLoc, r, g, b);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, await createImageBitmap(pic));
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+                };
+                cb(0);
+            }
+        }, {'passive':true});
+
+    if(localStorage.getItem('focusPeak'))
+        selFoc.click();
+    if(localStorage.getItem('histogram'))
+        selHist.click();
 
     let trigPres = async(ix) => {
         if(disabed)
@@ -872,7 +991,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         if(dat['ShutterMode'] != 'D')
             document.getElementById(dat['ShutterMode']).click();
         if(dat['AutoIris'] != 'D'){
-            if(dat['AutoIris'] != autoIris);
+            if(dat['AutoIris'] != autoIris)
                 autos.push('I');
             if(!dat['AutoIris'])
                 irisPos = (dat['Iris']-2.4)/(25.5-2.4);
@@ -892,7 +1011,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                 await M.stopEasePosition();
             isMoveEasing = 1;
             if(dat['moveEase'])
-                M.easePosition(...dat['Position'], .3);
+                M.easePosition(...dat['Position'], 2);
             else{
                 isMoveEasing = 0;
                 M.setPosition(...dat['Position']);
@@ -903,12 +1022,13 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                 if(isZoomEasing)
                     await M.stopEaseZoom();
                 isZoomEasing = 1;
-                M.zoomEase(dat['Zoom'], .3);
-            }else
+                M.easeZoom(dat['Zoom'], 2);
+            }else{
                 zoomPos = dat['Zoom'];
+                isSetZoom = 'H';
+            }
         }
         if(dat['AutoFocus'] != 'D'){
-            console.log('HEHEHEHA');
             if(dat['AutoFocus'] != autoFocus)
                 autos.push('F');
             if(!dat['AutoFocus'])
@@ -1031,7 +1151,8 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         prevTime = curTime;
         cbs = [];
         curCnt = 0;
-        isSetZoom = 0;
+        if(isSetZoom != 'H')
+            isSetZoom = 0;
         isSetFocus = 0;
         if(isZoom || isZoomEasing)
             M.getZoom().then((d) => {zoomPos = d;});
@@ -1171,11 +1292,12 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             prevZoomSpeed = zoomSpeed;
         }
         if(zoomPos != prevZoomPos){
-            if(isZoomEasing)
-                isZoomEasing = 2;
             prevZoomPos = zoomPos;
-            if(isSetZoom)
+            if(isSetZoom){
                 O.setZoom(zoomPos);
+                if(isZoomEasing)
+                    isZoomEasing = 2;
+            }
             zoomHandleBar.style.top = 42.5-(zoomPos-.5)*100+'px';
             zoomHandleBar.children[1].innerText = `Zoom: ${zoomPos.toFixed(2)}`;
         }

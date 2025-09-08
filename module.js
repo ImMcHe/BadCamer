@@ -347,14 +347,14 @@ export const destroyImage = (url) => {
     });
 }
 
-let yFactor = .8;
+let yFactor = .5;
 let easeMovePid = 0;
 let easeMoveStops = 1;
 /**
  * Ease the camera to a position with a certain speed.
  * @param {number} x - The x position (-1 <= x <= 1).
  * @param {number} y - The y position (-1 <= y <= 1).
- * @param {number} speed - The speed of ease (0 <= speed <= 1).
+ * @param {number} speed - The speed of ease (0 <= speed).
  * @returns {Promise<void>}
  */
 export const easePosition = (x, y, speed) => {
@@ -369,7 +369,7 @@ export const easePosition = (x, y, speed) => {
             return;
         }
         easeMoveStops = 0;
-        speed = clamp(speed, 0, 1);
+        speed = clamp(speed, 0, Infinity);
         x = clamp(x, -1, 1);
         y = clamp(y, -1, 1);
         let ogdst = -1;
@@ -401,7 +401,7 @@ export const easePosition = (x, y, speed) => {
                 setPosition(x, y).then(() => {easeMoveStops=1;r();});
                 return;
             }
-            dst = clamp(2*(dst*speed)**.5, .2, .9);
+            dst = clamp(2*(dst*speed)**.5, .2, 1);
             getNextEase(dx*dst, dy*dst, easeOut);
         };
 
@@ -416,7 +416,7 @@ export const easePosition = (x, y, speed) => {
                 return;
             }
             dst = ogdst - dst;
-            let curSpeed = clamp(2*(speed*dst)**.5, .2, .9);
+            let curSpeed = clamp(2*(speed*dst)**.5, .2, 1);
             getNextEase(curSpeed*dx, curSpeed*dy, easeIn);
         };
         getNextEase(null, null, easeIn);
@@ -449,7 +449,7 @@ let easeZoomStops = 1;
 /**
  * Ease the camera to a zoom factor with a certain speed.
  * @param {number} z - The zoom factor (0 <= z <= 1).
- * @param {number} speed - The speed of ease (0 <= speed <= 1).
+ * @param {number} speed - The speed of ease (0 <= speed).
  * @returns {Promise<void>}
  */
 export const easeZoom = (z, speed) => {
@@ -463,7 +463,7 @@ export const easeZoom = (z, speed) => {
             return;
         }
         easeZoomStops = 0;
-        speed = clamp(speed, 0, 1);
+        speed = clamp(speed, 0, Infinity);
         z = clamp(z, -1, 1);
         let ogdst = -1;
 

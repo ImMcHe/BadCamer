@@ -61,6 +61,10 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         if(!document.hidden && !disabed){
             await M.destroyImage();
             img = await M.createImage();
+            if(img == null){
+                disabed = 1;
+                img = lnk;
+            }
             pic.src = img;
         }
     }, {'passive':true});
@@ -419,6 +423,13 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         }
     }, {'passive':true});
 
+    let typeRanStyle = document.createElement('style');
+    typeRanStyle.innerHTML = `.buttonD{-webkit-appearance:none;height:6px;background:#555;margin:0px}
+.buttonD::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:20px;background:#444;border:none}
+.buttonD::-moz-range-thumb{width:12px;height:20px;background:#444;border:none}
+.buttonD::-moz-range-track{background:#555;height:6px}`;
+    document.head.appendChild(typeRanStyle);
+
     let createTp = (ix) => {
         let dispbox = document.createElement('div');
         dispbox.style = 'width:100%;height:100%;display:flex;align-items:center;justify-content:center;position:absolute;top:0px;left:0px;z-index:999;background-color:rgba(0,0,0,.5)';
@@ -447,6 +458,14 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                 isAsignKey = 0;
             }
         };
+        let int = setInterval(() => {
+            if(isAsignKey)
+                for(let i of Object.keys(controlKys))
+                    if(controlKys[i]){
+                        isAsignKey = 0;
+                        ask.innerText = controlNames[i];
+                    }
+        }, 100);
 
         addEv(dispbox, () => {
             let dat = JSON.parse(localStorage.getItem('val'+ix));
@@ -458,14 +477,8 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                         dat[txt.slice(3)] = r;
                     idx++;
                     if(idx == tot){
-                        if(lst[1].innerText == 'Transition: Jump')
-                            dat['moveEase'] = 0;
-                        else
-                            dat['moveEase'] = 1;
-                        if(lst[4].innerText == 'Transition: Jump')
-                            dat['zoomEase'] = 0;
-                        else
-                            dat['zoomEase'] = 1;
+                        dat['moveEase'] = parseFloat(lst[1].value);
+                        dat['zoomEase'] = parseFloat(lst[4].value);
                         dat['key'] = ask.innerText;
                         pres.children[parseInt(ix/2)].children[ix%2].children[2].innerText = dat['key'];
                         if(retake.innerText[1] == 'i'){
@@ -479,6 +492,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                         localStorage.setItem('val'+ix, JSON.stringify(dat));
                         dispbox.remove();
                         document.removeEventListener('keydown', evcb, {'passive':true});
+                        clearInterval(int);
                     }
                 };
                 if(!txt)
@@ -528,7 +542,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         let retake = document.createElement('div');
         retake.style = 'width:300px;height:25px;font-size:15px';
         retake.setAttribute('class', 'buttonB');
-        retake.innerText = 'Will retake picture';
+        retake.innerText = 'Won\'t retake picture';
         addEv(retake, () => {retake.innerText = retake.innerText[1]=='o'?'Will retake picture':'Won\'t retake picture';});
         dispint.appendChild(retake);
 
@@ -551,7 +565,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
 
         let addTxt = (txt, va, vb) => {
             let curPan = document.createElement('div');
-            curPan.style = 'width:300px;height:25px;display:flex;color:white;font-family:arial';
+            curPan.style = 'width:300px;height:25px;display:flex;color:white;font-family:arial;position:relative';
             dispint.appendChild(curPan);
 
             let tmp = document.createElement('div');
@@ -574,15 +588,26 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             lst.push(enab);
 
             if(vb != undefined){
-                let type = document.createElement('div');
-                type.innerText = 'Transition: '+(vb?'Ease':'Jump');
-                type.style = 'width:75px;height:25px;font-size:9px';
-                type.setAttribute('class', 'buttonB');
-                addEv(type, () => {
-                    type.innerText = type.innerText=='Transition: Jump'?'Transition: Ease':'Transition: Jump';
+                let slid = document.createElement('input');
+                slid.type = 'range';
+                slid.min = .5;
+                slid.max = 22;
+                slid.step = .01;
+                slid.value = vb;
+                slid.setAttribute('class', 'buttonD');
+                slid.style = 'width:75px;font-size:9px;margin-top:6.5px';
+                curPan.appendChild(slid);
+                lst.push(slid);
+                let abs = document.createElement('div');
+                abs.style = 'position:absolute;pointer-events:none;z-index:99;font-size:9px;width:75px;height:25px;left:150px;top:0px;background-color:transparent';
+                abs.setAttribute('class', 'buttonB');
+                slid.addEventListener('input', () => {
+                    abs.innerText = parseFloat(slid.value).toFixed(2);
+                    abs.innerText = 'Speed: '+(abs.innerText=='22.00'?'Jump':abs.innerText);
                 });
-                curPan.appendChild(type);
-                lst.push(type);
+                abs.innerText = parseFloat(slid.value).toFixed(2);
+                abs.innerText = 'Speed: '+(abs.innerText=='22.00'?'Jump':abs.innerText);
+                curPan.appendChild(abs);
             }
 
             let setS = document.createElement('div');
@@ -758,8 +783,8 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                         dat[j.substring(3)] = r;
                         if(cnt == lst.length){
                             localStorage.setItem('img'+(lensTmp*2+i), ths.children[1].src);
-                            dat['moveEase'] = 0;
-                            dat['zoomEase'] = 0;
+                            dat['moveEase'] = 22;
+                            dat['zoomEase'] = 22;
                             dat['key'] = 'Nothing';
                             localStorage.setItem('val'+(lensTmp*2+i), JSON.stringify(dat));
                         }
@@ -810,18 +835,19 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                 selHist.style.backgroundColor = '';
                 selHist.innerText = 'Histogram: Disabled';
                 hiscnv.style.display = 'none';
-                focId++;
+                histId++;
                 localStorage.removeItem('histogram');
             }else{
                 localStorage.setItem('histogram', 'S');
                 hiscnv.style.display = '';
-                let cpy = focId;
+                let cpy = histId;
                 selHist.style.backgroundColor = '#333';
                 selHist.innerText = 'Histogram: Enabled';
                 let cb = () => {
-                    if(cpy != focId)
+                    if(cpy != histId)
                         return;
-                    hisctxRead.drawImage(pic, 0, 0, 320, 180);
+                    setTimeout(cb, 200);
+                    try{hisctxRead.drawImage(pic, 0, 0, 320, 180);}catch(e){}
                     let dat = hisctxRead.getImageData(0, 0, 320, 180).data;
                     let res = [];
                     for(let i=0; i<256; i++)
@@ -836,7 +862,6 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
                         let val = res[i]/mx*100;
                         hisctx.fillRect(i, 100-val, 1, val);
                     }
-                    setTimeout(cb, 200);
                 };
                 cb();
             }
@@ -844,7 +869,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
 
     let foccnv = document.createElement('canvas');
     let gl = foccnv.getContext('webgl2', {'preserveDrawingBuffer':false});
-    foccnv.style = 'width:100%;position:absolute;left:0px;top:0px;display:none;pointer-events:none';
+    foccnv.style = 'width:100%;position:absolute;left:0px;top:0px;pointer-events:none';
     foccnv.width = 1280;
     foccnv.height = 720;
     cen.appendChild(foccnv);
@@ -874,7 +899,6 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         float eb = cnvt(0., px.y);
         float ec = cnvt(-px.x, 0.);
         float ed = cnvt(0., -px.y);
-        float c = cnvt(0., 0.);
         float gx = -cb - 2.*ec - cd + ca + 2.*ea + cc;
         float gy = -cb - 2.*eb - ca + cd + 2.*ed + cc;
         float nm = clamp(length(vec2(gx, gy))*2., 0., 1.);
@@ -914,69 +938,65 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     gl.uniform1i(imgLoc, 0);
-    gl.uniform1f(threshLoc, .7);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    let selFoc = document.createElement('div');
-    selFoc.style = 'font-size:15px;height:35px';
-    selFoc.setAttribute('class', 'buttonB');
-    selFoc.innerText = 'Focus Peaking: Disabled';
+    let selFoc = document.createElement('input');
+    selFoc.type = 'range';
+    selFoc.min = 0;
+    selFoc.max = 1;
+    selFoc.step = .0001;
+    selFoc.style = 'width:250px';
+    selFoc.addEventListener('touchstart', (e) => {e.stopPropagation();}, {'passive':true});
+    selFoc.setAttribute('class', 'buttonD');
     utilPan.appendChild(selFoc);
-    let focId = 0;
 
-    for(let i of ['click','touchstart'])
-        selFoc.addEventListener(i, () => {
-            if(selFoc.style.backgroundColor){
-                selFoc.style.backgroundColor = '';
-                selFoc.innerText = 'Focus Peaking: Disabled';
-                foccnv.style.display = 'none';
-                focId++;
-                localStorage.removeItem('focusPeak');
-            }else{
-                localStorage.setItem('focusPeak', 'k');
-                foccnv.style.display = '';
-                let cpy = focId;
-                selFoc.style.backgroundColor = '#333';
-                selFoc.innerText = 'Focus Peaking: Enabled';
-                let cb = async(t) => {
-                    t *= .001;
-                    t %= 6;
-                    if(focId != cpy)
-                        return;
-                    window.requestAnimationFrame(cb);
-                    let r=0, g=0, b=0;
-                    if(t<1){
-                        r = 1;
-                        g = t;
-                    }else if(t<2){
-                        r = 2-t;
-                        g = 1
-                    }else if(t<3){
-                        g = 1;
-                        b = t-2;
-                    }else if(t<4){
-                        g = 4-t;
-                        b = 1;
-                    }else if(t<5){
-                        b = 1;
-                        r = t-4;
-                    }else{
-                        b = 6-t;
-                        r = 1;
-                    }
-                    gl.uniform3f(colLoc, r, g, b);
-                    gl.clear(gl.COLOR_BUFFER_BIT);
-                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, await createImageBitmap(pic));
-                    gl.drawArrays(gl.TRIANGLES, 0, 6);
-                };
-                cb(0);
-            }
-        }, {'passive':true});
+    let focusLoop = async(t) => {
+        let v = parseFloat(selFoc.value);
+        if(v == 1){
+            foccnv.style.display = 'none';
+            setTimeout(() => {focusLoop(0);}, 100);
+            return;
+        }
+        foccnv.style.display = '';
+        t *= .000001;
+        t %= 6;
+        window.requestAnimationFrame(focusLoop);
+        let r=0, g=0, b=0;
+        if(t<1){
+            r = 1;
+            g = t;
+        }else if(t<2){
+            r = 2-t;
+            g = 1
+        }else if(t<3){
+            g = 1;
+            b = t-2;
+        }else if(t<4){
+            g = 4-t;
+            b = 1;
+        }else if(t<5){
+            b = 1;
+            r = t-4;
+        }else{
+            b = 6-t;
+            r = 1;
+        }
+        gl.uniform3f(colLoc, r, g, b);
+        gl.uniform1f(threshLoc, v);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        try{
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, await createImageBitmap(pic));
+            gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }catch(e){}
+    };
+    focusLoop(0);
 
     if(localStorage.getItem('focusPeak'))
-        selFoc.click();
+        selFoc.value = localStorage.getItem('focusPeak');
+    else
+        selFoc.value = 0;
     if(localStorage.getItem('histogram'))
         selHist.click();
 
@@ -1010,19 +1030,19 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             if(isMoveEasing)
                 await M.stopEasePosition();
             isMoveEasing = 1;
-            if(dat['moveEase'])
-                M.easePosition(...dat['Position'], 2);
+            if(dat['moveEase'] != 22)
+                M.easePosition(...dat['Position'], dat['moveEase']).then(() => {isMoveEasing=0;});
             else{
                 isMoveEasing = 0;
                 M.setPosition(...dat['Position']);
             }
         }
         if(dat['Zoom'] != 'D'){
-            if(dat['zoomEase']){
+            if(dat['zoomEase'] != 22){
                 if(isZoomEasing)
                     await M.stopEaseZoom();
                 isZoomEasing = 1;
-                M.easeZoom(dat['Zoom'], 2);
+                M.easeZoom(dat['Zoom'], dat['zoomEase']).then(() => {isZoomEasing=0;});
             }else{
                 zoomPos = dat['Zoom'];
                 isSetZoom = 'H';
@@ -1036,7 +1056,7 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         }
     };
 
-    document.addEventListener('keyup', (e) => {
+    let trigPresKys = (code) => {
         if(document.querySelector('div[name=HEHEHEHALESKIBIDITOIL]'))
             return;
         let curi=0;
@@ -1046,10 +1066,11 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             if(!it)
                 return;
             it = JSON.parse(it);
-            if(it['key'] == e.code)
+            if(it['key'] == code)
                 trigPres(curi-1);
         }
-    });
+    };
+    document.addEventListener('keyup', (e) => {trigPresKys(e.code);});
 
     let keyPress = (code, isDown) => {
         if(code.startsWith('Shift'))
@@ -1142,6 +1163,17 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
             });
         };
     }
+
+    let controlNames = [
+        'X','O','Square','Triangle','L1','R1','L2','R2','Back','Options','LeftStick','RightStick',
+        'Up','Down','Left','Right'
+    ];
+    for(let i=0; i<controlNames.length; i++)
+        controlNames[i] += '_Gp';
+    for(let i=1; i<=16; i++)
+        controlNames.push('_'+i+'_Gp');
+    let controlKys = {};
+    let prevControlKys = {};
 
     let curFrame = 0;
     let timeoutFunc = () => {
@@ -1265,6 +1297,32 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
         }
         autos = [];
 
+        let gps = navigator.getGamepads();
+        prevControlKys = controlKys;
+        controlKys = {};
+
+        for(let gp of gps){
+            if(!gp)
+                continue;
+            if(Math.abs(gp.axes[0]) > .05)
+                moveSpeed['x'] = gp.axes[0];
+            if(Math.abs(gp.axes[1]) > .05)
+                moveSpeed['y'] = -gp.axes[1];
+            let v = Math.max(Math.abs(gp.axes[2]), Math.abs(gp.axes[3]));
+            if(Math.abs(gp.axes[2])==v && v>.05 && !isSetZoom)
+                zoomSpeed = gp.axes[2];
+            if(Math.abs(gp.axes[3])==v && v>.05 && !isSetFocus)
+                focusSpeed = gp.axes[3];
+            for(let i=0; i<gp.buttons.length; i++)
+                controlKys[i] = gp.buttons[i].pressed;
+            break;
+        }
+
+        for(let i=0; i<controlNames.length; i++){
+            if(prevControlKys[i] && !controlKys[i])
+                trigPresKys(controlNames[i]);
+        }
+
         dist = (moveSpeed['x']**2 + moveSpeed['y']**2) ** .5;
         dist = Math.max(1, dist);
         moveSpeed['x'] /= dist;
@@ -1368,7 +1426,10 @@ let lnk = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/d5510b7c-95
     };
     timeoutFunc();
 
-    window.onbeforeunload = () => {M.destroyImage(img);};
+    window.onbeforeunload = () => {
+        M.destroyImage(img);
+        localStorage.setItem('focusPeak', parseFloat(selFoc.value));
+    };
 
     loading.remove();
     loading = 0;
